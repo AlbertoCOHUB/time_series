@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Series Analyzer — Geovisualization.net</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --earth:   #2d4a1e;
+    --moss:    #4a7c2f;
+    --leaf:    #7ab648;
+    --sky:     #1a4a6b;
+    --sand:    #f0ead8;
+    --ink:     #1a1a1a;
+    --mist:    #f7f5f0;
+    --border:  #ddd8cc;
+    --mono:    'Space Mono', monospace;
+    --sans:    'Space Grotesk', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--mist);
+    color: var(--ink);
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--earth);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 64px 32px 56px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Animated satellite grid background */
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(74,124,47,0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74,124,47,0.15) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridScroll 20s linear infinite;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(45,74,30,0.9) 0%, rgba(26,74,107,0.7) 100%);
+  }
+  @keyframes gridScroll {
+    0%   { background-position: 0 0; }
+    100% { background-position: 40px 40px; }
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--leaf);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 2px;
+    background: var(--leaf);
+  }
+
+  h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--leaf);
+  }
+
+  .header-sub {
+    font-size: 17px;
+    color: rgba(255,255,255,0.75);
+    max-width: 540px;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  .meta-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid rgba(122,182,72,0.4);
+    color: var(--leaf);
+    border-radius: 2px;
+    letter-spacing: 1px;
+  }
+
+  /* ── NDVI STRIP ── */
+  .ndvi-strip {
+    height: 6px;
+    background: linear-gradient(90deg,
+      #d73027 0%, #f46d43 12%, #fdae61 25%, #fee08b 38%,
+      #d9ef8b 50%, #a6d96a 62%, #66bd63 75%, #1a9641 100%);
+  }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
+  }
+
+  /* ── SECTION ── */
+  section {
+    padding: 56px 0 0;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--moss);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--earth);
+    margin-bottom: 20px;
+    line-height: 1.25;
+  }
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--sky);
+    margin: 28px 0 8px;
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+  }
+
+  p {
+    margin-bottom: 16px;
+    color: #333;
+    max-width: 680px;
+  }
+
+  /* ── STACK GRID ── */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 28px 0;
+  }
+
+  .stack-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--leaf);
+    padding: 18px 18px 16px;
+  }
+
+  .stack-card .tech {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--earth);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .stack-card .tech-role {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* ── WORKFLOW ── */
+  .workflow {
+    margin: 28px 0;
+    counter-reset: step;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 0 20px;
+    position: relative;
+  }
+
+  .step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 48px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .step-num {
+    width: 48px;
+    height: 48px;
+    background: var(--earth);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-body {
+    padding: 12px 0 32px;
+  }
+
+  .step-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--earth);
+    margin-bottom: 4px;
+  }
+
+  .step-desc {
+    font-size: 14px;
+    color: #555;
+    max-width: 560px;
+    margin: 0;
+  }
+
+  /* ── USE CASES ── */
+  .use-cases {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 28px 0;
+  }
+
+  .use-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .use-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    line-height: 1;
+    margin-top: 2px;
+  }
+
+  .use-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--earth);
+    margin-bottom: 4px;
+  }
+
+  .use-card p {
+    font-size: 13px;
+    color: #666;
+    margin: 0;
+    max-width: 100%;
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: #1a1a2e;
+    border-left: 3px solid var(--leaf);
+    padding: 20px 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+
+  .code-block code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #a8d8a8;
+    line-height: 1.8;
+    white-space: pre;
+    display: block;
+  }
+
+  .code-block .comment { color: #5f8a5f; }
+  .code-block .keyword { color: #7bb8e8; }
+  .code-block .string  { color: #f0c070; }
+
+  /* ── QUOTE / HIGHLIGHT ── */
+  .highlight-box {
+    background: var(--sand);
+    border-left: 4px solid var(--moss);
+    padding: 20px 24px;
+    margin: 28px 0;
+    max-width: 680px;
+  }
+  .highlight-box p {
+    font-size: 15px;
+    color: var(--earth);
+    font-style: italic;
+    margin: 0;
+    max-width: 100%;
+  }
+
+  /* ── ANALYSIS TABLE ── */
+  .analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+  .analysis-table th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--earth);
+    border-bottom: 2px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+    background: var(--sand);
+  }
+  .analysis-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: #444;
+    vertical-align: top;
+  }
+  .analysis-table tr:hover td { background: #fafaf7; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--earth);
+    padding: 32px;
+    text-align: center;
+  }
+  footer p {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin: 0 auto;
+    max-width: 100%;
+  }
+  footer strong { color: var(--leaf); }
+
+  @media (max-width: 600px) {
+    .use-cases { grid-template-columns: 1fr; }
+    .stack-grid { grid-template-columns: 1fr 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="eyebrow">Geovisualization.net · Alberto Concejal</div>
+    <h1>Time Series<br><em>Analyzer</em></h1>
+    <p class="header-sub">
+      Exploración interactiva de series temporales de índices espectrales
+      sobre imágenes de satélite, directamente en Google Earth Engine.
+      Sin instalaciones. Sin código. Solo resultados.
+    </p>
+    <div class="meta-tags">
+      <span class="tag">Google Earth Engine</span>
+      <span class="tag">Landsat · Sentinel-2</span>
+      <span class="tag">NDVI · EVI · SAVI · NDWI · NBR</span>
+      <span class="tag">ACF · SARIMA</span>
+      <span class="tag">JavaScript</span>
+    </div>
+  </div>
+</header>
+
+<div class="ndvi-strip"></div>
+
+<main>
+
+  <!-- ── QUÉ ES ── -->
+  <section>
+    <div class="section-label">Introducción</div>
+    <h2>¿Qué es y para qué sirve?</h2>
+    <p>
+      <strong>Time Series Analyzer</strong> es una aplicación geoespacial desarrollada íntegramente en
+      Google Earth Engine que permite extraer, visualizar y analizar series temporales de índices
+      espectrales sobre cualquier geometría del mundo, sin necesidad de descargar ni procesar
+      ninguna imagen de satélite localmente.
+    </p>
+    <p>
+      El usuario dibuja un área de interés sobre el mapa, selecciona un índice espectral, un rango
+      de fechas y una plataforma satélite, y la aplicación devuelve automáticamente la serie temporal
+      completa con sombreado anual, el mosaico medio en el mapa con leyenda de gradiente continuo,
+      y un análisis estadístico interpretado punto por punto.
+    </p>
+
+    <div class="highlight-box">
+      <p>
+        "La combinación de teledetección multitemporal con análisis de autocorrelación permite detectar
+        degradación vegetal, estacionalidad y cambios de cobertura de forma objetiva,
+        sin necesidad de trabajo de campo."
+      </p>
+    </div>
+  </section>
+
+  <!-- ── STACK ── -->
+  <section>
+    <div class="section-label">Stack tecnológico</div>
+    <h2>Tecnologías utilizadas</h2>
+    <p>
+      La aplicación vive completamente en la nube de Google Earth Engine y está escrita en JavaScript
+      puro usando la API de UI de GEE. No requiere servidor externo, base de datos ni despliegue.
+    </p>
+
+    <div class="stack-grid">
+      <div class="stack-card">
+        <div class="tech">Google Earth Engine</div>
+        <div class="tech-role">Plataforma de procesamiento y hosting. Acceso a petabytes de imágenes satélite sin descarga local.</div>
+      </div>
+      <div class="stack-card">
+        <div class="tech">GEE JavaScript API</div>
+        <div class="tech-role">Lógica de filtrado, enmascarado de nubes, cálculo de índices y reducción espacial.</div>
+      </div>
+      <div class="stack-card">
+        <div class="tech">GEE UI API</div>
+        <div class="tech-role">Interfaz de tres paneles, controles interactivos, gráficos y leyenda de gradiente continuo.</div>
+      </div>
+      <div class="stack-card">
+        <div class="tech">Landsat 5/7/8/9</div>
+        <div class="tech-role">Serie histórica 1984–2026. Collection 2, Level 2, Surface Reflectance. Resolución 30m.</div>
+      </div>
+      <div class="stack-card">
+        <div class="tech">Sentinel-2 SR</div>
+        <div class="tech-role">Alta resolución temporal (revisita ~5 días) y espacial (10m). Disponible desde 2017.</div>
+      </div>
+      <div class="stack-card">
+        <div class="tech">ACF (JavaScript)</div>
+        <div class="tech-role">Función de Autocorrelación calculada en cliente con interpolación de umbral de Bartlett al 95%.</div>
+      </div>
+    </div>
+
+    <h3>// Índices espectrales disponibles</h3>
+    <div class="code-block"><code><span class="comment">// Todos calculados sobre reflectancia de superficie</span>
+<span class="keyword">NDVI</span>  = (NIR - RED) / (NIR + RED)          <span class="comment">// Vegetación general</span>
+<span class="keyword">EVI</span>   = 2.5 × (NIR-RED) / (NIR+6RED-7.5B+1) <span class="comment">// Vegetación densa</span>
+<span class="keyword">SAVI</span>  = 1.5 × (NIR-RED) / (NIR+RED+0.5)   <span class="comment">// Vegetación en suelo desnudo</span>
+<span class="keyword">NDWI</span>  = (GREEN - NIR) / (GREEN + NIR)      <span class="comment">// Humedad y agua</span>
+<span class="keyword">NBR</span>   = (NIR - SWIR2) / (NIR + SWIR2)     <span class="comment">// Áreas quemadas</span></code></div>
+  </section>
+
+  <!-- ── METODOLOGÍA ── -->
+  <section>
+    <div class="section-label">Metodología</div>
+    <h2>Flujo de trabajo paso a paso</h2>
+    <p>
+      La metodología combina teledetección de alta resolución temporal con análisis estadístico
+      de series temporales. Cada paso transforma los datos brutos en conocimiento interpretable.
+    </p>
+
+    <div class="workflow">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-body">
+          <div class="step-title">Selección y filtrado de imágenes</div>
+          <p class="step-desc">
+            La colección se filtra por fecha, geometría y porcentaje de nubosidad. Para Landsat,
+            se fusionan automáticamente L5, L7, L8 y L9 renombrando bandas a un esquema común.
+            La máscara de nubes usa el bit 3 (cloud) y bit 4 (cloud shadow) de la banda QA_PIXEL.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-body">
+          <div class="step-title">Cálculo del índice espectral</div>
+          <p class="step-desc">
+            Cada imagen se transforma al índice seleccionado aplicando los factores de escala
+            de Collection 2 SR (× 0.0000275, offset −0.2 para Landsat; × 0.0001 para Sentinel-2).
+            El resultado es una ImageCollection monobanda llamada <code style="font-family:monospace;background:#eee;padding:1px 4px">index</code>.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-body">
+          <div class="step-title">Extracción de la serie temporal</div>
+          <p class="step-desc">
+            Se aplica <code style="font-family:monospace;background:#eee;padding:1px 4px">ee.Reducer.mean()</code> sobre la geometría dibujada para cada imagen,
+            generando un FeatureCollection con fecha y valor medio. Los datos se traen al cliente
+            con <code style="font-family:monospace;background:#eee;padding:1px 4px">.evaluate()</code> para permitir el análisis estadístico en JavaScript.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-body">
+          <div class="step-title">Visualización de la serie con sombreado anual</div>
+          <p class="step-desc">
+            Se construye un <code style="font-family:monospace;background:#eee;padding:1px 4px">ComboChart</code> con tres series: dos de área (años pares en gris claro,
+            años impares transparentes) y la línea del índice encima. El sombreado alternado
+            facilita la lectura de la estacionalidad sin necesidad de etiquetas anuales densas.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-body">
+          <div class="step-title">Análisis de autocorrelación (ACF)</div>
+          <p class="step-desc">
+            Se calcula la función de autocorrelación para lags 0–24 usando la fórmula de covarianza
+            normalizada por la varianza total. El umbral de Bartlett al 95% (±1.96/√n) se representa
+            como líneas discontinuas. La interpretación automática clasifica la memoria temporal,
+            detecta ciclos estacionales y recomienda el modelo ARIMA/SARIMA adecuado.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">06</div>
+        <div class="step-body">
+          <div class="step-title">Exportación y análisis complementario</div>
+          <p class="step-desc">
+            La serie completa se puede exportar como CSV a Google Drive mediante la API de Tasks
+            de GEE para análisis posteriores en R, Python o cualquier entorno estadístico.
+            La app también ofrece tendencia lineal con R², histograma de valores y curva suavizada.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ANÁLISIS DISPONIBLES ── -->
+  <section>
+    <div class="section-label">Análisis estadístico</div>
+    <h2>Módulos de análisis del panel derecho</h2>
+
+    <table class="analysis-table">
+      <thead>
+        <tr>
+          <th>Análisis</th>
+          <th>Qué mide</th>
+          <th>Cuándo usarlo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Autocorrelación (ACF)</strong></td>
+          <td>Correlación de la serie consigo misma en distintos desfases temporales</td>
+          <td>Detectar estacionalidad, ciclos y preparar modelos ARIMA/SARIMA</td>
+        </tr>
+        <tr>
+          <td><strong>Tendencia lineal</strong></td>
+          <td>Pendiente de la regresión lineal + R² sobre toda la serie</td>
+          <td>Confirmar degradación o recuperación vegetal sostenida</td>
+        </tr>
+        <tr>
+          <td><strong>Distribución de valores</strong></td>
+          <td>Histograma del índice medio en la geometría</td>
+          <td>Caracterizar la heterogeneidad de la cobertura dentro del área</td>
+        </tr>
+        <tr>
+          <td><strong>Curva suavizada</strong></td>
+          <td>Spline cúbico que elimina ruido imagen a imagen</td>
+          <td>Comparar amplitud estacional entre años y detectar eventos puntuales</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── CASOS DE USO ── -->
+  <section>
+    <div class="section-label">Aplicaciones</div>
+    <h2>¿Para qué se puede usar?</h2>
+
+    <div class="use-cases">
+      <div class="use-card">
+        <div class="use-icon">🌾</div>
+        <div>
+          <h4>Seguimiento de pastizales</h4>
+          <p>Monitorizar la dinámica estacional de pastos en áreas como la Patagonia argentina,
+          detectando años de sequía o sobrepastoreo mediante cambios en la amplitud del ciclo NDVI.</p>
+        </div>
+      </div>
+      <div class="use-card">
+        <div class="use-icon">🔥</div>
+        <div>
+          <h4>Impacto de incendios forestales</h4>
+          <p>Con NBR, seguir la evolución de áreas quemadas desde el evento hasta la recuperación
+          post-incendio, cuantificando la velocidad de revegetación año a año.</p>
+        </div>
+      </div>
+      <div class="use-card">
+        <div class="use-icon">💧</div>
+        <div>
+          <h4>Estrés hídrico y sequías</h4>
+          <p>NDWI o EVI sobre zonas agrícolas o forestales para detectar años con déficit hídrico
+          como caídas anómalas en la serie respecto al patrón estacional esperado.</p>
+        </div>
+      </div>
+      <div class="use-card">
+        <div class="use-icon">🏙️</div>
+        <div>
+          <h4>Expansión urbana y cambio de uso</h4>
+          <p>Sobre series largas de Landsat (desde 1984), detectar la conversión de suelo
+          agrícola o natural a urbano como tendencia negativa sostenida en NDVI o SAVI.</p>
+        </div>
+      </div>
+      <div class="use-card">
+        <div class="use-icon">🌲</div>
+        <div>
+          <h4>Fenología forestal</h4>
+          <p>Caracterizar el ciclo fenológico de masas forestales: fecha de brotación,
+          pico de verdor y senescencia mediante el patrón de picos de la ACF y curva suavizada.</p>
+        </div>
+      </div>
+      <div class="use-card">
+        <div class="use-icon">📡</div>
+        <div>
+          <h4>Investigación y docencia</h4>
+          <p>Herramienta didáctica para explicar conceptos de teledetección multitemporal,
+          estadística de series temporales y modelado predictivo a estudiantes de grado y máster.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LIMITACIONES ── -->
+  <section>
+    <div class="section-label">Consideraciones técnicas</div>
+    <h2>Limitaciones y recomendaciones</h2>
+
+    <h3>// Cobertura de nubes</h3>
+    <p>
+      En zonas de alta nubosidad persistente (trópicos, costa atlántica patagónica), el filtro
+      de nubosidad al 10% puede dejar series con pocas imágenes anuales. Se recomienda subir el
+      umbral al 20–30% y combinar Landsat con Sentinel-2 en el post-procesado externo.
+    </p>
+
+    <h3>// Tamaño de la geometría</h3>
+    <p>
+      Geometrías muy grandes pueden generar timeouts en GEE. Para análisis regionales,
+      se recomienda exportar via Tasks y procesar la ACF externamente en R con el paquete
+      <code style="font-family:monospace;background:#eee;padding:1px 4px">forecast</code> o en Python con <code style="font-family:monospace;background:#eee;padding:1px 4px">statsmodels</code>.
+    </p>
+
+    <h3>// Interpretación de la ACF</h3>
+    <p>
+      La ACF asume estacionariedad de la serie. Si existe una tendencia fuerte (R² > 0.4 en
+      el análisis de tendencia lineal), la ACF mostrará autocorrelaciones altas en todos los
+      lags que reflejan la tendencia, no la estacionalidad. En ese caso, aplicar diferenciación
+      de primer orden antes de calcular la ACF.
+    </p>
+
+    <div class="highlight-box">
+      <p>
+        El CSV exportado a Google Drive puede procesarse directamente en R con
+        <code style="font-family:monospace">auto.arima()</code> del paquete <code style="font-family:monospace">forecast</code>
+        para ajustar automáticamente el modelo SARIMA óptimo sobre la serie extraída.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<div class="ndvi-strip"></div>
+
+<footer>
+  <p>Desarrollado por <strong>Alberto Concejal</strong> · <strong>Geovisualization.net</strong> · UAH · 2026<br>
+  Google Earth Engine · Landsat · Sentinel-2 · JavaScript · ACF · SARIMA</p>
+</footer>
+
+</body>
+</html>
